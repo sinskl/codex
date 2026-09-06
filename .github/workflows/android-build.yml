@@ -29,9 +29,8 @@ jobs:
       - name: Install protoc
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler gn ninja-build python3-setuptools
+          sudo apt-get install -y protobuf-compiler ninja-build python3-setuptools
           protoc --version
-          gn --version
           ninja --version
 
       - name: Cargo build
