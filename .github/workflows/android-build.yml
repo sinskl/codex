@@ -47,6 +47,7 @@ jobs:
       - name: Package binary
         run: |
           cd codex-rs/target/aarch64-linux-android/release
+          ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip codex
           mkdir -p codex-android
           cp codex codex-android/
           cp codex codex-android/codex-code-mode-host
@@ -59,4 +60,3 @@ jobs:
         with:
           name: codex-android-aarch64
           path: codex-rs/codex-android.tar.gz
-          compression-level: 0
