@@ -61,14 +61,14 @@ impl WriterLockCoordinator {
                 ),
             })?;
 
-        match file.try_lock() {
+        match codex_file_lock::try_lock(&file) {
             Ok(()) => {}
-            Err(std::fs::TryLockError::WouldBlock) => {
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                 return Err(ThreadStoreError::Conflict {
                     message: format!("thread {thread_id} already has an active writer"),
                 });
             }
-            Err(std::fs::TryLockError::Error(err)) => {
+            Err(err) => {
                 return Err(ThreadStoreError::Internal {
                     message: format!(
                         "failed to acquire thread writer lock {}: {err}",
@@ -106,7 +106,7 @@ impl WriterLockCoordinator {
                     path.display()
                 ),
             })?;
-        file.lock().map_err(|err| ThreadStoreError::Internal {
+        codex_file_lock::lock(&file).map_err(|err| ThreadStoreError::Internal {
             message: format!(
                 "failed to acquire thread writer coordination lock {}: {err}",
                 path.display()
@@ -140,7 +140,7 @@ impl WriterLockCoordinator {
                     continue;
                 }
             };
-            match file.try_lock() {
+            match codex_file_lock::try_lock(&file) {
                 Ok(()) => {
                     drop(file);
                     if let Err(err) = fs::remove_file(&path)
@@ -152,8 +152,8 @@ impl WriterLockCoordinator {
                         );
                     }
                 }
-                Err(std::fs::TryLockError::WouldBlock) => {}
-                Err(std::fs::TryLockError::Error(err)) => {
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => {}
+                Err(err) => {
                     warn!(
                         "failed to inspect thread writer lock {}: {err}",
                         path.display()

@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "aws-auth",
+    "file-lock",
     "analytics",
     "agent-graph-store",
     "agent-identity",
@@ -150,7 +151,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.0.0"
+version = "0.153.4"
 # Track the edition for all workspace crates in one place. Individual
 # crates can still override this value, but keeping it here means new
 # crates created with `cargo new -w ...` automatically inherit the 2024
@@ -209,6 +210,7 @@ codex-exec-server-protocol = { path = "exec-server-protocol" }
 codex-exec-server = { path = "exec-server" }
 codex-exec-server-test-support = { path = "exec-server/tests/support" }
 codex-execpolicy = { path = "execpolicy" }
+codex-file-lock = { path = "file-lock" }
 codex-extension-api = { path = "ext/extension-api" }
 codex-extension-items = { path = "ext/items" }
 codex-goal-extension = { path = "ext/goal" }
@@ -421,7 +423,7 @@ rcgen = { version = "0.14.7", default-features = false, features = [
 ] }
 regex = "1.12.3"
 regex-lite = "0.1.8"
-reqwest = { version = "0.12", features = ["cookies"] }
+reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "cookies"] }
 rmcp = { version = "=3.2.0", default-features = false }
 runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
 rustix = { version = "1.1.4", features = ["net"] }
@@ -434,7 +436,7 @@ rustls-pki-types = "1.14.0"
 schemars = "0.8.22"
 seccompiler = "0.5.0"
 semver = "1.0"
-sentry = "0.46.0"
+sentry = { version = "0.46.0", default-features = false, features = ["backtrace", "contexts", "debug-images", "panic", "release-health"] }
 serde = { version = "1", features = ["rc"] }
 serde_ignored = "0.1.14"
 serde_json = "1"

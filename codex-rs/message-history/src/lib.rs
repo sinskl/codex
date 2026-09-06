@@ -160,7 +160,7 @@ pub async fn append_entry(
     tokio::task::spawn_blocking(move || -> Result<()> {
         // Retry a few times to avoid indefinite blocking when contended.
         for _ in 0..MAX_RETRIES {
-            match history_file.try_lock() {
+            match codex_file_lock::try_lock(&history_file) {
                 Ok(()) => {
                     // While holding the exclusive lock, write the full line.
                     // We do not open the file with `append(true)` on Windows, so ensure the
@@ -171,7 +171,7 @@ pub async fn append_entry(
                     enforce_history_limit(&mut history_file, history_max_bytes)?;
                     return Ok(());
                 }
-                Err(std::fs::TryLockError::WouldBlock) => {
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                     std::thread::sleep(RETRY_SLEEP);
                 }
                 Err(e) => return Err(e.into()),

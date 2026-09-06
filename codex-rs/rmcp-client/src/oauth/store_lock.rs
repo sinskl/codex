@@ -124,19 +124,21 @@ impl OAuthStoreLock {
 
         loop {
             let result = match mode {
-                OAuthStoreLockMode::Shared => file.try_lock_shared(),
-                OAuthStoreLockMode::Exclusive => file.try_lock(),
+                OAuthStoreLockMode::Shared => codex_file_lock::try_lock_shared(&file),
+                OAuthStoreLockMode::Exclusive => codex_file_lock::try_lock(&file),
             };
             match result {
                 Ok(()) => return Ok(Self { _file: file }),
-                Err(std::fs::TryLockError::WouldBlock) if started.elapsed() >= acquire_timeout => {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock
+                    && started.elapsed() >= acquire_timeout =>
+                {
                     return Err(OAuthStoreLockFailure::Timeout {
                         store,
                         path,
                         acquire_timeout,
                     });
                 }
-                Err(std::fs::TryLockError::WouldBlock) => {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                     if !reported_contention {
                         tracing::debug!(
                             target: LOCK_CONTENTION_EVENT_TARGET,
@@ -152,7 +154,7 @@ impl OAuthStoreLock {
                     return Err(OAuthStoreLockFailure::Lock {
                         store,
                         path,
-                        source: io::Error::from(error),
+                        source: error,
                     });
                 }
             }

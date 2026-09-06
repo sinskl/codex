@@ -69,9 +69,9 @@ impl RefreshCredentialLock {
         let mut reported_contention = false;
         timeout(acquire_timeout, async {
             loop {
-                match file.try_lock() {
+                match codex_file_lock::try_lock(&file) {
                     Ok(()) => return Ok(()),
-                    Err(std::fs::TryLockError::WouldBlock) => {
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         if !reported_contention {
                             tracing::debug!(
                                 target: LOCK_CONTENTION_EVENT_TARGET,
@@ -82,7 +82,7 @@ impl RefreshCredentialLock {
                         }
                         sleep(REFRESH_LOCK_RETRY_SLEEP).await;
                     }
-                    Err(error) => return Err(std::io::Error::from(error)),
+                    Err(error) => return Err(error),
                 }
             }
         })

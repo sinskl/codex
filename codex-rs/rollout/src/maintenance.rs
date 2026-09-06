@@ -33,9 +33,9 @@ pub fn try_acquire_rollout_maintenance_lock(
         .truncate(false)
         .open(directory.join(ROLLOUT_MAINTENANCE_LOCK))?;
 
-    match file.try_lock() {
+    match codex_file_lock::try_lock(&file) {
         Ok(()) => Ok(Some(RolloutMaintenanceGuard { _file: file })),
-        Err(std::fs::TryLockError::WouldBlock) => Ok(None),
-        Err(std::fs::TryLockError::Error(error)) => Err(error),
+        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+        Err(err) => Err(err),
     }
 }
