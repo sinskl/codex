@@ -42,15 +42,15 @@ jobs:
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
           PROTOC: /usr/bin/protoc
           RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
-        run: cargo build -p codex-cli --release
+        run: cargo build -p codex-cli -p codex-code-mode-host --release
 
       - name: Package binary
         run: |
           cd codex-rs/target/aarch64-linux-android/release
-          ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip codex
+          ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip codex codex-code-mode-host
           mkdir -p codex-android
           cp codex codex-android/
-          cp codex codex-android/codex-code-mode-host
+          cp codex-code-mode-host codex-android/
           echo '{"version":"0.153.4"}' > codex-android/codex-package.json
           tar -czf ../../../codex-android.tar.gz codex-android
           ls -lh ../../../codex-android.tar.gz
