@@ -8,7 +8,7 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +42,7 @@ jobs:
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
           PROTOC: /usr/bin/protoc
           RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
+          V8_FROM_SOURCE: "1"
         run: cargo build -p codex-cli -p codex-code-mode-host --release
 
       - name: Package binary
