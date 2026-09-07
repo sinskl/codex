@@ -189,9 +189,11 @@ jobs:
           PROTOC: /usr/bin/protoc
           RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
           V8_FROM_SOURCE: "1"
-          # bindgen parses V8 headers on the host; the host glibc headers need
-          # the multiarch include path for bits/wordsize.h etc.
-          BINDGEN_EXTRA_CLANG_ARGS: -isystem /usr/include/x86_64-linux-gnu
+          # bindgen parses V8 headers; point it at the android NDK sysroot so
+          # it doesn't trip over host glibc headers (see rusty_v8 #1604).
+          BINDGEN_EXTRA_CLANG_ARGS: >-
+            --target=aarch64-linux-android24
+            --sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot
         run: cargo build -p codex-cli -p codex-code-mode-host --release
 
       - name: Save V8 build cache (runs even on failure)
