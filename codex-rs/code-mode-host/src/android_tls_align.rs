@@ -42,7 +42,7 @@ _android_tls_align_touch:
 );
 
 #[cfg(all(target_os = "android", target_arch = "aarch64"))]
-extern "C" {
+unsafe extern "C" {
     fn _android_tls_align_touch();
 }
 
