@@ -66,7 +66,7 @@ pub(crate) fn tool_user_shell_type(
 }
 
 pub(crate) fn requested_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
-    model_info.tool_mode.unwrap_or_else(|| {
+    let requested = model_info.tool_mode.unwrap_or_else(|| {
         if turn_context.config.features.enabled(Feature::CodeModeOnly) {
             ToolMode::CodeModeOnly
         } else if turn_context.config.features.enabled(Feature::CodeMode) {
@@ -74,7 +74,18 @@ pub(crate) fn requested_tool_mode(turn_context: &TurnContext, model_info: &Model
         } else {
             ToolMode::Direct
         }
-    })
+    });
+    // Android: there is no standalone code-mode host build for this platform,
+    // so downgrade code-mode-only models to regular code mode. Code mode
+    // gracefully falls back to direct tools when the host is unavailable,
+    // while code-mode-only would fail closed and leave the model without any
+    // usable tools.
+    #[cfg(target_os = "android")]
+    let requested = match requested {
+        ToolMode::CodeModeOnly => ToolMode::CodeMode,
+        mode => mode,
+    };
+    requested
 }
 
 pub(crate) fn effective_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
