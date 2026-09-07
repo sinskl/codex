@@ -30,8 +30,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler ninja-build python3-setuptools
-          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
           curl -s https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/llvm.gpg >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y libclang-21-dev
           protoc --version
           ninja --version
           ls /usr/lib/llvm-21/lib/libclang* | head -2
