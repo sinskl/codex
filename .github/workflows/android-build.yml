@@ -100,8 +100,22 @@ jobs:
           # gclient hook). Reuse the generic ICU data file vendored in the
           # deno_core_icudata crate.
           ICU_SRC=$(ls -d ~/.cargo/registry/src/*/deno_core_icudata-0.77.0/src/icudtl.dat)
-          mkdir -p third_party/icu/android
+          mkdir -p third_party/icu/android third_party/icu/common
           cp "$ICU_SRC" third_party/icu/android/icudtl.dat
+          cp "$ICU_SRC" third_party/icu/common/icudtl.dat
+          # GN reads tools/rust/update_rust.py and cross-checks the rust
+          # toolchain revision (missing from the vendored crate). The rust
+          # toolchain tarball bundled via v8/DEPS is revision
+          # 4c4205163...-4-llvmorg-23-init-10931-g20b6ec66.
+          mkdir -p tools/rust
+          cat > tools/rust/update_rust.py <<'PY'
+RUST_REVISION = '4c4205163abcbd08948b3efab796c543ba1ea687'
+RUST_SUB_REVISION = 4
+PY
+          # GN reads the clang revision marker; the clang tarball downloaded by
+          # build.rs is llvmorg-23-init-10931-g20b6ec66-11.
+          mkdir -p third_party/llvm-build/Release+Asserts
+          echo "llvmorg-23-init-10931-g20b6ec66-11" > third_party/llvm-build/Release+Asserts/cr_build_revision
           # Vendor the third_party/rust crates (normally populated by gclient's
           # rust hooks) from crates.io releases.
           python3 - <<'EOF'
