@@ -92,6 +92,10 @@ jobs:
                           print('stubbed', target)
           print('total stubs:', stubs)
           EOF
+          # GN sets use_sysroot=true globally for the android cross build, which
+          # also applies to host toolchains (x64 linux). Install the debian amd64
+          # sysroot they require.
+          python3 build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
 
       - name: Cargo build
         working-directory: codex-rs
