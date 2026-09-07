@@ -102,6 +102,50 @@ jobs:
           ICU_SRC=$(ls -d ~/.cargo/registry/src/*/deno_core_icudata-0.77.0/src/icudtl.dat)
           mkdir -p third_party/icu/android
           cp "$ICU_SRC" third_party/icu/android/icudtl.dat
+          # Vendor the third_party/rust crates (normally populated by gclient's
+          # rust hooks) from crates.io releases.
+          python3 - <<'EOF'
+          import os, re, urllib.request, tarfile, io, time
+          base = 'third_party/rust'
+          vendor = 'third_party/rust/chromium_crates_io/vendor'
+          needed = {}
+          for root, dirs, files in os.walk(base):
+              if 'BUILD.gn' not in files:
+                  continue
+              p = os.path.join(root, 'BUILD.gn')
+              text = open(p, encoding='utf-8', errors='ignore').read()
+              name_m = re.search(r'crate_name = "([^"]+)"', text)
+              ver_m = re.search(r'cargo_pkg_version = "([^"]+)"', text)
+              root_m = re.search(r'crate_root = "//third_party/rust/chromium_crates_io/vendor/([^/"]+)/', text)
+              if root_m and name_m and ver_m:
+                  needed[root_m.group(1)] = (name_m.group(1), ver_m.group(1))
+          print(len(needed), 'crates to vendor')
+          os.makedirs(vendor, exist_ok=True)
+          for vend, (name, version) in sorted(needed.items()):
+              dest = os.path.join(vendor, vend)
+              if os.path.isdir(dest):
+                  continue
+              url = f'https://crates.io/api/v1/crates/{name}/{version}/download'
+              data = None
+              for attempt in range(5):
+                  try:
+                      req = urllib.request.Request(url, headers={'User-Agent': 'codex-android-build (github-actions)'})
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          data = r.read()
+                      break
+                  except Exception as e:
+                      print('retry', vend, attempt, e)
+                      time.sleep(3 * (attempt + 1))
+              if data is None:
+                  raise SystemExit(f'failed to download {vend}')
+              with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as t:
+                # Extract, stripping the leading <name>-<version>/ component.
+                members = [m for m in t.getmembers() if '/' in m.name]
+                for m in members:
+                    m.name = m.name.split('/', 1)[1]
+                t.extractall(dest, members=members)
+              print('vendored', vend)
+          EOF
 
       - name: Cargo build
         working-directory: codex-rs
