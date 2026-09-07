@@ -108,10 +108,7 @@ jobs:
           # toolchain tarball bundled via v8/DEPS is revision
           # 4c4205163...-4-llvmorg-23-init-10931-g20b6ec66.
           mkdir -p tools/rust
-          cat > tools/rust/update_rust.py <<'PY'
-RUST_REVISION = '4c4205163abcbd08948b3efab796c543ba1ea687'
-RUST_SUB_REVISION = 4
-PY
+          printf "RUST_REVISION = '4c4205163abcbd08948b3efab796c543ba1ea687'\nRUST_SUB_REVISION = 4\n" > tools/rust/update_rust.py
           # GN reads the clang revision marker; the clang tarball downloaded by
           # build.rs is llvmorg-23-init-10931-g20b6ec66-11.
           mkdir -p third_party/llvm-build/Release+Asserts
