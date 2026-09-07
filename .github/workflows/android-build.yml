@@ -105,7 +105,7 @@ jobs:
           # Vendor the third_party/rust crates (normally populated by gclient's
           # rust hooks) from crates.io releases.
           python3 - <<'EOF'
-          import os, re, subprocess, tarfile, time, io
+          import os, re, subprocess, tarfile, time, io, glob
           base = 'third_party/rust'
           vendor = 'third_party/rust/chromium_crates_io/vendor'
           needed = {}
@@ -121,19 +121,30 @@ jobs:
                   needed[root_m.group(1)] = (name_m.group(1), ver_m.group(1))
           print(len(needed), 'crates to vendor')
           os.makedirs(vendor, exist_ok=True)
+          # Prefer the local cargo registry cache (populated by cargo fetch);
+          # fall back to downloading from static.crates.io.
+          cache_dirs = glob.glob(os.path.expanduser('~/.cargo/registry/cache/*/'))
           for vend, (name, version) in sorted(needed.items()):
               dest = os.path.join(vendor, vend)
               if os.path.isdir(dest):
                   continue
-              url = f'https://static.crates.io/crates/{name}/{name}-{version}.crate'
+              crate_name = f'{name}-{version}.crate'
               data = None
-              for attempt in range(5):
-                  r = subprocess.run(['curl', '-fsSL', '--retry', '3', url], capture_output=True)
-                  if r.returncode == 0 and r.stdout:
-                      data = r.stdout
+              for cdir in cache_dirs:
+                  cached = os.path.join(cdir, crate_name)
+                  if os.path.isfile(cached):
+                      data = open(cached, 'rb').read()
+                      print('from cache', vend)
                       break
-                  print('retry', vend, attempt, r.stderr.decode(errors='ignore')[:120])
-                  time.sleep(3 * (attempt + 1))
+              if data is None:
+                  url = f'https://static.crates.io/crates/{name}/{crate_name}'
+                  for attempt in range(5):
+                      r = subprocess.run(['curl', '-fsSL', '--retry', '3', url], capture_output=True)
+                      if r.returncode == 0 and r.stdout:
+                          data = r.stdout
+                          break
+                      print('retry', vend, attempt, r.stderr.decode(errors='ignore')[:120])
+                      time.sleep(3 * (attempt + 1))
               if data is None:
                   raise SystemExit(f'failed to download {vend}')
               with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as t:
