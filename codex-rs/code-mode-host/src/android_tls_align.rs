@@ -10,6 +10,9 @@
 //! alignment, which lld propagates as PT_TLS p_align=8. This module
 //! creates a `.tbss` section with explicit 64-byte alignment so lld
 //! computes max(all TLS section alignments) = 64 and emits p_align=64.
+//!
+//! The symbol is referenced from `force_tls_alignment()` so the linker
+//! does not garbage-collect the section.
 
 #[cfg(all(target_os = "android", target_arch = "aarch64"))]
 core::arch::global_asm!(
@@ -24,3 +27,22 @@ _android_tls_align_force:
 .zero 64
 "#
 );
+
+/// Forces the 64-byte-aligned TLS object above to be retained by the
+/// linker. The value read is discarded; only the section reference matters.
+///
+/// # Errors
+///
+/// Never returns an error; the TLS object is always readable.
+#[cfg(all(target_os = "android", target_arch = "aarch64"))]
+pub fn force_tls_alignment() {
+    extern "C" {
+        #[thread_local]
+        static _android_tls_align_force: [u8; 64];
+    }
+    // Volatile-ish read to keep the reference alive.
+    let _ = unsafe { core::ptr::read_volatile(&_android_tls_align_force[0]) };
+}
+
+#[cfg(any(not(target_os = "android"), not(target_arch = "aarch64")))]
+pub fn force_tls_alignment() {}

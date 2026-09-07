@@ -38,6 +38,8 @@ struct Cli {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
+    // Ensure the 64-byte TLS alignment anchor is linked in (Android).
+    codex_code_mode_host::android_tls_align::force_tls_alignment();
     let cli = Cli::parse();
     let mut trace_transport = if let Some(trace_listen) = cli.otel_trace_listen.as_deref() {
         Some(TraceWebSocket::start(trace_listen).await?)
