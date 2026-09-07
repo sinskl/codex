@@ -189,10 +189,10 @@ jobs:
       - name: Cargo build
         working-directory: codex-rs
         env:
-          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
+          CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang
           CARGO_BUILD_TARGET: aarch64-linux-android
-          CC_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang
-          CXX_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++
+          CC_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang
+          CXX_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
           PROTOC: /usr/bin/protoc
           RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
@@ -201,7 +201,7 @@ jobs:
           # bindgen parses V8 headers; point it at the android NDK sysroot so
           # it doesn't trip over host glibc headers (see rusty_v8 #1604).
           BINDGEN_EXTRA_CLANG_ARGS: >-
-            --target=aarch64-linux-android24
+            --target=aarch64-linux-android28
             --sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot
         run: cargo build -p codex-cli -p codex-code-mode-host --release
 
