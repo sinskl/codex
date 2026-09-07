@@ -26,12 +26,15 @@ jobs:
           ndk-version: r27c
           add-to-path: false
 
-      - name: Install protoc
+      - name: Install protoc and clang 21
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler ninja-build python3-setuptools
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main" | sudo tee /etc/apt/sources.list.d/llvm-21.list
+          curl -s https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor | sudo tee /usr/share/keyrings/llvm.gpg >/dev/null
           protoc --version
           ninja --version
+          ls /usr/lib/llvm-21/lib/libclang* | head -2
 
       - name: Restore V8 build cache
         id: v8-cache
@@ -189,6 +192,7 @@ jobs:
           PROTOC: /usr/bin/protoc
           RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
           V8_FROM_SOURCE: "1"
+          LIBCLANG_PATH: /usr/lib/llvm-21/lib
           # bindgen parses V8 headers; point it at the android NDK sysroot so
           # it doesn't trip over host glibc headers (see rusty_v8 #1604).
           BINDGEN_EXTRA_CLANG_ARGS: >-
