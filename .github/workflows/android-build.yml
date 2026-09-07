@@ -186,6 +186,13 @@ jobs:
               print('vendored', vend)
           EOF
 
+      - name: Locate clang builtins library
+        id: builtins
+        run: |
+          BUILTINS=$(find "${{ steps.setup-ndk.outputs.ndk-path }}" -name 'libclang_rt.builtins-aarch64-android.a' | head -1)
+          echo "path=$BUILTINS" >> "$GITHUB_OUTPUT"
+          echo "builtins: $BUILTINS"
+
       - name: Cargo build
         working-directory: codex-rs
         env:
@@ -195,7 +202,9 @@ jobs:
           CXX_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android28-clang++
           AR_aarch64_linux_android: ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar
           PROTOC: /usr/bin/protoc
-          RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
+          RUSTFLAGS: >-
+            -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
+            -C link-arg=${{ steps.builtins.outputs.path }}
           V8_FROM_SOURCE: "1"
           LIBCLANG_PATH: /usr/lib/llvm-21/lib
           # bindgen parses V8 headers; point it at the android NDK sysroot so
