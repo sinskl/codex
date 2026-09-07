@@ -116,7 +116,7 @@ jobs:
               text = open(p, encoding='utf-8', errors='ignore').read()
               name_m = re.search(r'cargo_pkg_name = "([^"]+)"', text)
               ver_m = re.search(r'cargo_pkg_version = "([^"]+)"', text)
-              root_m = re.search(r'crate_root = "//third_party/rust/chromium_crates_io/vendor/([^/"]+)/', text)
+              root_m = re.search(r'crate_root\s*=\s*"//third_party/rust/chromium_crates_io/vendor/([^/"]+)/', text)
               if root_m and name_m and ver_m:
                   needed[root_m.group(1)] = (name_m.group(1), ver_m.group(1))
           print(len(needed), 'crates to vendor')
