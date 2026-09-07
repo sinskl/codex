@@ -205,6 +205,8 @@ jobs:
           RUSTFLAGS: >-
             -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
             -C link-arg=${{ steps.builtins.outputs.path }}
+            -C link-arg=-Wl,-z,max-page-size=16384
+            -C link-arg=-Wl,-z,common-page-size=16384
           V8_FROM_SOURCE: "1"
           LIBCLANG_PATH: /usr/lib/llvm-21/lib
           # bindgen parses V8 headers; point it at the android NDK sysroot so
@@ -229,6 +231,10 @@ jobs:
         run: |
           cd codex-rs/target/aarch64-linux-android/release
           ${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip codex codex-code-mode-host
+          # Dump PT_TLS for diagnostics (bionic requires align>=64 and vaddr%64==0).
+          for b in codex codex-code-mode-host; do
+            echo "=== $b PT_TLS:"; readelf -lW $b 2>/dev/null | grep TLS || true
+          done
           mkdir -p codex-android
           cp codex codex-android/
           cp codex-code-mode-host codex-android/
