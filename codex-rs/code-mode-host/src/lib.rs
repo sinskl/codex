@@ -45,6 +45,7 @@ use self::peer::HostPeer;
 pub use self::grpc::GrpcCodeModeHost;
 pub use self::transport::DEFAULT_LISTEN_URL;
 
+mod android_tls_align;
 mod delegate;
 mod grpc;
 mod grpc_transport;
