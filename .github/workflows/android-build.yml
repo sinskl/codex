@@ -178,6 +178,9 @@ jobs:
           PROTOC: /usr/bin/protoc
           RUSTFLAGS: -C link-arg=-Wl,-rpath,/data/data/com.termux/files/usr/lib
           V8_FROM_SOURCE: "1"
+          # bindgen parses V8 headers on the host; the host glibc headers need
+          # the multiarch include path for bits/wordsize.h etc.
+          BINDGEN_EXTRA_CLANG_ARGS: -isystem /usr/include/x86_64-linux-gnu
         run: cargo build -p codex-cli -p codex-code-mode-host --release
 
       - name: Package binary
