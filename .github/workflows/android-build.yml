@@ -33,6 +33,17 @@ jobs:
           protoc --version
           ninja --version
 
+      - name: Restore V8 build cache
+        id: v8-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            codex-rs/target/aarch64-linux-android/release/gn_out
+            codex-rs/target/aarch64-linux-android/release/build
+            codex-rs/target/aarch64-linux-android/release/clang
+            ~/.cargo/registry/src
+          key: v8-android-build-v1
+
       - name: Pre-download V8 android NDK and patch GN config
         run: |
           # Let cargo fetch/unpack the v8 crate first, then patch it.
@@ -182,6 +193,17 @@ jobs:
           # the multiarch include path for bits/wordsize.h etc.
           BINDGEN_EXTRA_CLANG_ARGS: -isystem /usr/include/x86_64-linux-gnu
         run: cargo build -p codex-cli -p codex-code-mode-host --release
+
+      - name: Save V8 build cache (runs even on failure)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            codex-rs/target/aarch64-linux-android/release/gn_out
+            codex-rs/target/aarch64-linux-android/release/build
+            codex-rs/target/aarch64-linux-android/release/clang
+            ~/.cargo/registry/src
+          key: v8-android-build-v1-${{ github.run_id }}
 
       - name: Package binary
         run: |
