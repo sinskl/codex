@@ -105,7 +105,7 @@ jobs:
           # Vendor the third_party/rust crates (normally populated by gclient's
           # rust hooks) from crates.io releases.
           python3 - <<'EOF'
-          import os, re, urllib.request, tarfile, io, time
+          import os, re, subprocess, tarfile, time, io
           base = 'third_party/rust'
           vendor = 'third_party/rust/chromium_crates_io/vendor'
           needed = {}
@@ -128,14 +128,12 @@ jobs:
               url = f'https://static.crates.io/crates/{name}/{name}-{version}.crate'
               data = None
               for attempt in range(5):
-                  try:
-                      req = urllib.request.Request(url, headers={'User-Agent': 'codex-android-build (github-actions)'})
-                      with urllib.request.urlopen(req, timeout=60) as r:
-                          data = r.read()
+                  r = subprocess.run(['curl', '-fsSL', '--retry', '3', url], capture_output=True)
+                  if r.returncode == 0 and r.stdout:
+                      data = r.stdout
                       break
-                  except Exception as e:
-                      print('retry', vend, attempt, e)
-                      time.sleep(3 * (attempt + 1))
+                  print('retry', vend, attempt, r.stderr.decode(errors='ignore')[:120])
+                  time.sleep(3 * (attempt + 1))
               if data is None:
                   raise SystemExit(f'failed to download {vend}')
               with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as t:
