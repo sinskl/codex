@@ -96,6 +96,12 @@ jobs:
           # also applies to host toolchains (x64 linux). Install the debian amd64
           # sysroot they require.
           python3 build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
+          # GN needs third_party/icu/android/icudtl.dat (normally produced by a
+          # gclient hook). Reuse the generic ICU data file vendored in the
+          # deno_core_icudata crate.
+          ICU_SRC=$(ls -d ~/.cargo/registry/src/*/deno_core_icudata-0.77.0/src/icudtl.dat)
+          mkdir -p third_party/icu/android
+          cp "$ICU_SRC" third_party/icu/android/icudtl.dat
 
       - name: Cargo build
         working-directory: codex-rs
