@@ -47,7 +47,8 @@ jobs:
             codex-rs/target/aarch64-linux-android/release/build
             codex-rs/target/aarch64-linux-android/release/clang
             ~/.cargo/registry/src
-          key: v8-android-build-v1
+          key: v8-android-build-v1-${{ github.run_id }}
+          restore-keys: v8-android-build-v1-
 
       - name: Pre-download V8 android NDK and patch GN config
         run: |
@@ -184,6 +185,28 @@ jobs:
                     m.name = m.name.split('/', 1)[1]
                 t.extractall(dest, members=members)
               print('vendored', vend)
+          EOF
+
+          # GN's internal host bindgen (run_bindgen.py) passes os.environ
+          # through to the vendored bindgen binary. Our BINDGEN_EXTRA_CLANG_ARGS
+          # (android target/sysroot for the crate-level bindgen) would override
+          # the x86_64 target GN already passes on the command line, breaking
+          # host-only FFI generation with "unsupported option '-msse3'". Strip
+          # it for every bindgen invocation inside the V8 build.
+          python3 - <<'EOF'
+          p = 'build/rust/gni_impl/run_bindgen.py'
+          s = open(p).read()
+          if 'BINDGEN_EXTRA_CLANG_ARGS' not in s:
+              s = s.replace(
+                  '    env = os.environ\n',
+                  '    env = os.environ\n'
+                  '    # The crate-level bindgen env (android target/sysroot) must\n'
+                  '    # not leak into GN-internal host bindgen calls, which carry\n'
+                  '    # their own complete --target/--sysroot flags.\n'
+                  '    env.pop("BINDGEN_EXTRA_CLANG_ARGS", None)\n',
+                  1)
+              open(p, 'w').write(s)
+          print('patched', p)
           EOF
 
       - name: Locate clang builtins library
