@@ -129,8 +129,9 @@ impl OAuthStoreLock {
             };
             match result {
                 Ok(()) => return Ok(Self { _file: file }),
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock
-                    && started.elapsed() >= acquire_timeout =>
+                Err(error)
+                    if error.kind() == io::ErrorKind::WouldBlock
+                        && started.elapsed() >= acquire_timeout =>
                 {
                     return Err(OAuthStoreLockFailure::Timeout {
                         store,

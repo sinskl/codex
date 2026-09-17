@@ -382,7 +382,7 @@ fn lookup_history_entry(path: &Path, log_id: u64, offset: usize) -> Option<Histo
     // Open & lock file for reading using a shared lock.
     // Retry a few times to avoid indefinite blocking.
     for _ in 0..MAX_RETRIES {
-        let lock_result = file.try_lock_shared();
+        let lock_result = codex_file_lock::try_lock_shared(&file);
 
         match lock_result {
             Ok(()) => {
@@ -409,7 +409,7 @@ fn lookup_history_entry(path: &Path, log_id: u64, offset: usize) -> Option<Histo
                 // Not found at requested offset.
                 return None;
             }
-            Err(std::fs::TryLockError::WouldBlock) => {
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                 std::thread::sleep(RETRY_SLEEP);
             }
             Err(e) => {

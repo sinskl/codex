@@ -121,10 +121,12 @@ pub fn lookup_batch(
     }
 
     for _ in 0..MAX_RETRIES {
-        match file.try_lock_shared() {
+        match codex_file_lock::try_lock_shared(&file) {
             Ok(()) => return scan_batch(&mut file, cursor, config),
-            Err(std::fs::TryLockError::WouldBlock) => std::thread::sleep(RETRY_SLEEP),
-            Err(error) => return Err(error.into()),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(RETRY_SLEEP);
+            }
+            Err(error) => return Err(error),
         }
     }
 

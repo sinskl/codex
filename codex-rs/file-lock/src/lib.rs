@@ -77,7 +77,9 @@ pub fn try_lock_shared(file: &File) -> io::Result<()> {
 #[cfg(not(target_os = "android"))]
 fn try_lock_error_into_io(err: std::fs::TryLockError) -> io::Error {
     match err {
-        std::fs::TryLockError::WouldBlock => Error::new(ErrorKind::WouldBlock, "lock is held elsewhere"),
+        std::fs::TryLockError::WouldBlock => {
+            Error::new(ErrorKind::WouldBlock, "lock is held elsewhere")
+        }
         std::fs::TryLockError::Error(error) => error,
     }
 }
