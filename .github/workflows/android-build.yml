@@ -261,7 +261,7 @@ jobs:
           mkdir -p codex-android
           cp codex codex-android/
           cp codex-code-mode-host codex-android/
-          echo '{"version":"0.153.4"}' > codex-android/codex-package.json
+          echo '{"version":"0.156.0-alpha.14"}' > codex-android/codex-package.json
           tar -czf ../../../codex-android.tar.gz codex-android
           ls -lh ../../../codex-android.tar.gz
 
