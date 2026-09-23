@@ -258,10 +258,14 @@ jobs:
           for b in codex codex-code-mode-host; do
             echo "=== $b PT_TLS:"; readelf -lW $b 2>/dev/null | grep TLS || true
           done
-          mkdir -p codex-android
-          cp codex codex-android/
-          cp codex-code-mode-host codex-android/
-          echo '{"version":"0.157.0-alpha.10"}' > codex-android/codex-package.json
+          rm -rf codex-android
+          mkdir -p codex-android/bin
+          cp codex codex-android/bin/
+          cp codex-code-mode-host codex-android/bin/
+          ln -s bin/codex codex-android/codex
+          cat > codex-android/codex-package.json <<'EOF'
+          {"version":"0.157.0-alpha.10","variant":"codex","layoutVersion":1,"target":"aarch64-linux-android","entrypoint":"bin/codex"}
+          EOF
           tar -czf ../../../codex-android.tar.gz codex-android
           ls -lh ../../../codex-android.tar.gz
 
