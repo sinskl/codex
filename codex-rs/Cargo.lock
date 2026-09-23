@@ -2307,6 +2307,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -2349,6 +2350,7 @@ dependencies = [
  "pretty_assertions",
  "tempfile",
  "tokio",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -2994,6 +2996,7 @@ dependencies = [
  "whoami 1.6.1",
  "wiremock",
  "zstd",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -3242,6 +3245,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -3350,6 +3354,13 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wiremock",
+]
+
+[[package]]
+name = "codex-file-lock"
+version = "0.0.0"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -3765,6 +3776,7 @@ dependencies = [
  "urlencoding",
  "webbrowser",
  "wiremock",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -3930,6 +3942,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -4070,6 +4083,7 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "windows-sys 0.52.0",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -4336,6 +4350,7 @@ dependencies = [
  "which 8.0.0",
  "windows-sys 0.52.0",
  "wiremock",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -4363,6 +4378,7 @@ dependencies = [
  "tracing",
  "uuid",
  "zstd",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -4826,6 +4842,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
+ "codex-file-lock",
 ]
 
 [[package]]
