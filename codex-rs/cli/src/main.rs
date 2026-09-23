@@ -2380,6 +2380,13 @@ async fn run_interactive_tui(
     remote_auth_token_env: Option<String>,
     arg0_paths: Arg0DispatchPaths,
 ) -> std::io::Result<AppExitInfo> {
+    #[cfg(target_os = "android")]
+    if remote.is_none() {
+        // The managed app-server daemon package/installer does not support Android.
+        // Keep local Android sessions on the existing in-process path while still
+        // allowing explicit --remote connections.
+        interactive.no_daemon = true;
+    }
     if interactive.no_daemon {
         if interactive.agents_overview {
             return Ok(AppExitInfo::fatal(
