@@ -2,7 +2,6 @@
 
 use std::fs::File;
 use std::fs::OpenOptions;
-use std::fs::TryLockError;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -30,12 +29,12 @@ pub(super) async fn lock_credentials(codex_home: &Path) -> io::Result<File> {
         .open(path)?;
     tokio::time::timeout(Duration::from_secs(/*secs*/ 60), async {
         loop {
-            match file.try_lock() {
+            match codex_file_lock::try_lock(&file) {
                 Ok(()) => return Ok(()),
-                Err(TryLockError::WouldBlock) => {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                     tokio::time::sleep(Duration::from_millis(/*millis*/ 50)).await
                 }
-                Err(error) => return Err(io::Error::from(error)),
+                Err(error) => return Err(error),
             }
         }
     })
