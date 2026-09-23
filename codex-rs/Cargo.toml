@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "aws-auth",
+    "file-lock",
     "analytics",
     "agent-graph-store",
     "agent-identity",
@@ -226,6 +227,7 @@ codex-external-agent-migration = { path = "external-agent-migration" }
 codex-experimental-api-macros = { path = "codex-experimental-api-macros" }
 codex-features = { path = "features" }
 codex-feedback = { path = "feedback" }
+codex-file-lock = { path = "file-lock" }
 codex-install-context = { path = "install-context" }
 codex-file-search = { path = "file-search" }
 codex-file-watcher = { path = "file-watcher" }
@@ -435,7 +437,7 @@ regex = "1.12.3"
 regex-automata = { version = "0.4.13", default-features = false, features = ["std", "syntax", "unicode", "nfa-pikevm"] }
 regex-lite = "0.1.8"
 regex-syntax = "0.8.8"
-reqwest = { version = "0.12", features = ["cookies"] }
+reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "cookies"] }
 rmcp = { version = "=3.2.0", default-features = false }
 runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
 rustix = { version = "1.1.4", features = ["net"] }
