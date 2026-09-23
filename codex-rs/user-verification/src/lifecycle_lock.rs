@@ -53,21 +53,21 @@ impl LifecycleLock {
         let started = Instant::now();
         loop {
             guard.check()?;
-            match file.try_lock() {
+            match codex_file_lock::try_lock(&file) {
                 Ok(()) => {
                     guard.check()?;
                     return Ok(Self { _file: file });
                 }
-                Err(std::fs::TryLockError::WouldBlock) if started.elapsed() >= timeout => {
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock if started.elapsed() >= timeout => {
                     return Err(UserVerificationError::Failed {
                         reason: UserVerificationFailureReason::Timeout,
                         message: "timed out waiting for another credential operation".to_string(),
                     });
                 }
-                Err(std::fs::TryLockError::WouldBlock) => {
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                     std::thread::sleep(Duration::from_millis(/*millis*/ 50).min(timeout));
                 }
-                Err(std::fs::TryLockError::Error(error)) => return Err(lock_error(error)),
+                Err(error) => return Err(lock_error(error)),
             }
         }
     }
