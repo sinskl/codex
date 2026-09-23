@@ -790,7 +790,7 @@ mod tests {
         let dir = root.path().join("locked");
         fs::create_dir(&dir)?;
         let lock_file = create_lock(&dir)?;
-        codex_file_lock::lock(&lock_file)?;
+        codex_file_lock::try_lock(&lock_file)?;
 
         janitor_cleanup(root.path())?;
 

@@ -38,7 +38,6 @@ struct Cli {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    // Ensure the 64-byte TLS alignment anchor is linked in (Android).
     codex_code_mode_host::android_tls_align::force_tls_alignment();
     let cli = Cli::parse();
     let mut trace_transport = if let Some(trace_listen) = cli.otel_trace_listen.as_deref() {
@@ -92,6 +91,9 @@ async fn main() -> anyhow::Result<()> {
 
 fn build_trace_provider(endpoint: &str) -> anyhow::Result<OtelProvider> {
     OtelProvider::try_new(&OtelSettings {
+        http_client_factory: codex_http_client::HttpClientFactory::new(
+            codex_http_client::OutboundProxyPolicy::ReqwestDefault,
+        ),
         environment: "code-mode-host".to_string(),
         service_name: "codex-code-mode-host".to_string(),
         service_version: env!("CARGO_PKG_VERSION").to_string(),

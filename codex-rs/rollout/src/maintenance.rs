@@ -35,7 +35,7 @@ pub fn try_acquire_rollout_maintenance_lock(
 
     match codex_file_lock::try_lock(&file) {
         Ok(()) => Ok(Some(RolloutMaintenanceGuard { _file: file })),
-        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
-        Err(err) => Err(err),
+        Err(err) if err.kind() == io::ErrorKind::WouldBlock => Ok(None),
+        Err(error) => Err(error),
     }
 }

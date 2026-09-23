@@ -6,7 +6,6 @@ use crate::UserVerificationRequestGuard;
 use std::fs;
 use std::fs::File;
 use std::fs::OpenOptions;
-use std::io;
 use std::path::Path;
 use std::time::Duration;
 use std::time::Instant;
@@ -60,15 +59,14 @@ impl LifecycleLock {
                     return Ok(Self { _file: file });
                 }
                 Err(error)
-                    if error.kind() == io::ErrorKind::WouldBlock
-                        && started.elapsed() >= timeout =>
-                {
+                    if error.kind() == std::io::ErrorKind::WouldBlock
+                        && started.elapsed() >= timeout => {
                     return Err(UserVerificationError::Failed {
                         reason: UserVerificationFailureReason::Timeout,
                         message: "timed out waiting for another credential operation".to_string(),
                     });
                 }
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                     std::thread::sleep(Duration::from_millis(/*millis*/ 50).min(timeout));
                 }
                 Err(error) => return Err(lock_error(error)),

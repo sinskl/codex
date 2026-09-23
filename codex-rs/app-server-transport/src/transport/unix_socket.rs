@@ -312,7 +312,7 @@ pub async fn acquire_app_server_startup_lock(
             .read(true)
             .write(true)
             .open(startup_lock_path.as_path())?;
-        codex_file_lock::lock(&file)?;
+        file.lock()?;
         Ok(AppServerStartupLock { _file: file })
     })
     .await

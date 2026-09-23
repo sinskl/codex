@@ -29,7 +29,7 @@ pub async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<Str
         }
 
         let mut file = options.open(&path)?;
-        codex_file_lock::lock(&file)?;
+        file.lock()?;
 
         #[cfg(unix)]
         {

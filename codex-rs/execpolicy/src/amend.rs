@@ -154,7 +154,7 @@ fn append_locked_line(policy_path: &Path, line: &str) -> Result<(), AmendError> 
             path: policy_path.to_path_buf(),
             source,
         })?;
-    codex_file_lock::lock(&file).map_err(|source| AmendError::LockPolicyFile {
+    file.lock().map_err(|source| AmendError::LockPolicyFile {
         path: policy_path.to_path_buf(),
         source,
     })?;

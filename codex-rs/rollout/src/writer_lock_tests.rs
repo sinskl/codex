@@ -1,5 +1,4 @@
 use std::fs;
-use std::io;
 use std::sync::Arc;
 
 use codex_protocol::ThreadId;
@@ -106,14 +105,14 @@ fn publication_skips_live_writers_and_keeps_coordination_locked() {
         .write(true)
         .open(writer.directory.join(COORDINATION_LOCK_FILE))
         .unwrap();
-    assert_eq!(
-        codex_file_lock::try_lock(&coordination)
-            .err()
-            .map(|e| e.kind()),
-        Some(io::ErrorKind::WouldBlock)
-    );
+    assert!(matches!(
+        coordination.try_lock(),
+        Err(fs::TryLockError::WouldBlock)
+    ));
     drop(publication);
-    codex_file_lock::try_lock(&coordination).expect("publication releases coordination");
+    coordination
+        .try_lock()
+        .expect("publication releases coordination");
     drop(coordination);
     // An existing but unlocked file is also idle; file existence is not ownership.
     fs::File::create(writer.directory.join(format!("{thread_id}.lock"))).unwrap();

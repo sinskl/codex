@@ -1,5 +1,6 @@
 mod approvals;
 pub(crate) mod call_trace;
+mod catalog_parameters;
 pub(crate) mod code_mode;
 pub(crate) mod context;
 mod control_tool_analytics;
@@ -20,6 +21,7 @@ pub(crate) mod sandboxing;
 pub(crate) mod spec_plan;
 pub(crate) mod tool_dispatch_trace;
 mod tool_namespaces_info;
+mod user_messaging;
 
 use std::borrow::Cow;
 
@@ -34,6 +36,7 @@ use codex_utils_output_truncation::TruncationPolicy;
 use codex_utils_output_truncation::formatted_truncate_text;
 use codex_utils_output_truncation::truncate_text;
 pub(crate) use executed_tool_calls::ExecutedToolCalls;
+pub(crate) use multi_agent_tool::MULTI_AGENT_V2_NAMESPACE_DESCRIPTION;
 pub use router::ToolRouter;
 
 /// Legacy boundaries such as hook payloads, telemetry tags, and Responses tool
@@ -68,7 +71,7 @@ pub(crate) fn tool_user_shell_type(
 }
 
 pub(crate) fn requested_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
-    let requested = model_info.tool_mode.unwrap_or_else(|| {
+    model_info.tool_mode.unwrap_or_else(|| {
         if turn_context.config.features.enabled(Feature::CodeModeOnly) {
             ToolMode::CodeModeOnly
         } else if turn_context.config.features.enabled(Feature::CodeMode) {
@@ -76,18 +79,7 @@ pub(crate) fn requested_tool_mode(turn_context: &TurnContext, model_info: &Model
         } else {
             ToolMode::Direct
         }
-    });
-    // Android: there is no standalone code-mode host build for this platform,
-    // so downgrade code-mode-only models to regular code mode. Code mode
-    // gracefully falls back to direct tools when the host is unavailable,
-    // while code-mode-only would fail closed and leave the model without any
-    // usable tools.
-    #[cfg(target_os = "android")]
-    let requested = match requested {
-        ToolMode::CodeModeOnly => ToolMode::CodeMode,
-        mode => mode,
-    };
-    requested
+    })
 }
 
 pub(crate) fn effective_tool_mode(turn_context: &TurnContext, model_info: &ModelInfo) -> ToolMode {
