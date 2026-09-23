@@ -1,0 +1,18 @@
+[package]
+description = "Cross-platform advisory file locks with an Android fallback"
+edition.workspace = true
+license.workspace = true
+name = "codex-file-lock"
+version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[target.'cfg(target_os = "android")'.dependencies]
+libc = { workspace = true }
+
+[lib]
+test = false
+doctest = false
