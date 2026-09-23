@@ -58,7 +58,9 @@ impl LifecycleLock {
                     guard.check()?;
                     return Ok(Self { _file: file });
                 }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock if started.elapsed() >= timeout => {
+                Err(error)
+                    if error.kind() == std::io::ErrorKind::WouldBlock
+                        && started.elapsed() >= timeout => {
                     return Err(UserVerificationError::Failed {
                         reason: UserVerificationFailureReason::Timeout,
                         message: "timed out waiting for another credential operation".to_string(),
