@@ -1916,7 +1916,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "codex-file-lock",
 ]
 
 [[package]]
@@ -3300,6 +3299,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "codex-file-lock",
 ]
 
 [[package]]
@@ -3458,7 +3458,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
- "codex-file-lock",
 ]
 
 [[package]]
@@ -4015,6 +4014,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "codex-file-lock",
 ]
 
 [[package]]
