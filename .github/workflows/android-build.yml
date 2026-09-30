@@ -264,7 +264,7 @@ jobs:
           cp codex-code-mode-host codex-android/bin/
           ln -s bin/codex codex-android/codex
           cat > codex-android/codex-package.json <<'EOF'
-          {"version":"0.157.0-alpha.10","variant":"codex","layoutVersion":1,"target":"aarch64-linux-android","entrypoint":"bin/codex"}
+          {"version":"0.161.0-alpha.3","variant":"codex","layoutVersion":1,"target":"aarch64-linux-android","entrypoint":"bin/codex"}
           EOF
           tar -czf ../../../codex-android.tar.gz codex-android
           ls -lh ../../../codex-android.tar.gz
