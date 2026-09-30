@@ -9,8 +9,38 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    env:
+      CODEX_PACKAGE_VERSION: "0.161.0-alpha.3"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Stamp Codex package version
+        run: |
+          python3 - <<'EOF'
+          import os
+          from pathlib import Path
+
+          version = os.environ["CODEX_PACKAGE_VERSION"]
+          path = Path("codex-rs/Cargo.toml")
+          lines = path.read_text().splitlines()
+          in_workspace_package = False
+          replaced = False
+          for i, line in enumerate(lines):
+              if line == "[workspace.package]":
+                  in_workspace_package = True
+                  continue
+              if in_workspace_package and line.startswith("["):
+                  break
+              if in_workspace_package and line.startswith("version = "):
+                  lines[i] = f'version = "{version}"'
+                  replaced = True
+                  break
+          if not replaced:
+              raise SystemExit("workspace package version not found")
+          path.write_text("\n".join(lines) + "\n")
+          print(f"Stamped Codex workspace version: {version}")
+          EOF
+          awk '/^\[workspace.package\]$/{print; getline; print; exit}' codex-rs/Cargo.toml
 
       - name: Install Rust toolchain
         run: |
@@ -263,9 +293,8 @@ jobs:
           cp codex codex-android/bin/
           cp codex-code-mode-host codex-android/bin/
           ln -s bin/codex codex-android/codex
-          cat > codex-android/codex-package.json <<'EOF'
-          {"version":"0.161.0-alpha.3","variant":"codex","layoutVersion":1,"target":"aarch64-linux-android","entrypoint":"bin/codex"}
-          EOF
+          printf '{"version":"%s","variant":"codex","layoutVersion":1,"target":"aarch64-linux-android","entrypoint":"bin/codex"}\n' \
+            "$CODEX_PACKAGE_VERSION" > codex-android/codex-package.json
           tar -czf ../../../codex-android.tar.gz codex-android
           ls -lh ../../../codex-android.tar.gz
 
