@@ -76,10 +76,14 @@ jobs:
             codex-rs/target/aarch64-linux-android/release/gn_out
             codex-rs/target/aarch64-linux-android/release/build
             codex-rs/target/aarch64-linux-android/release/clang
+            codex-rs/target/aarch64-linux-android/release/deps
+            codex-rs/target/aarch64-linux-android/release/.fingerprint
             ~/.cargo/registry/src
             ~/.cargo/git/checkouts
-          key: v8-android-build-v1-${{ github.run_id }}
-          restore-keys: v8-android-build-v1-
+          key: v8-android-build-v2-${{ github.run_id }}
+          restore-keys: |
+            v8-android-build-v2-
+            v8-android-build-v1-
 
       - name: Pre-download V8 android NDK and patch GN config
         run: |
@@ -298,6 +302,8 @@ jobs:
             codex-rs/target/aarch64-linux-android/release/gn_out
             codex-rs/target/aarch64-linux-android/release/build
             codex-rs/target/aarch64-linux-android/release/clang
+            codex-rs/target/aarch64-linux-android/release/deps
+            codex-rs/target/aarch64-linux-android/release/.fingerprint
             ~/.cargo/registry/src
             ~/.cargo/git/checkouts
           key: v8-android-build-v1-${{ github.run_id }}
