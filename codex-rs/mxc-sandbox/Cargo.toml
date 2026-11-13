@@ -21,7 +21,6 @@ codex-protocol = { workspace = true }
 codex-utils-absolute-path = { workspace = true }
 codex-utils-path-uri = { workspace = true }
 codex-windows-sandbox = { workspace = true }
-mxc-sdk = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -42,3 +41,9 @@ windows-sys = { workspace = true, features = [
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+# Windows-only helper: mxc-sdk is only used by the cfg(windows) modules, but an
+# unconditional dependency still makes cargo build the desktop-only crate on
+# Android targets, where its `run` module is cfg'd out.
+mxc-sdk = { workspace = true }
