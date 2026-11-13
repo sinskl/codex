@@ -24,21 +24,26 @@ codex-windows-sandbox = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-wxc_common = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-appcontainer_common = { workspace = true }
-learning_mode_windows = { workspace = true }
+flatbuffers = { workspace = true }
 # 1.2.4 imports OneCore_apiset, which the GNU Windows toolchain does not ship.
 tracelogging = "=1.2.3"
-windows-sys = { version = "0.61", features = [
+windows-sys = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",
     "Win32_System_SystemInformation",
+    "Win32_System_WindowsProgramming",
     "Win32_UI_Shell",
 ] }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+# Windows-only helper: mxc-sdk is only used by the cfg(windows) modules, but an
+# unconditional dependency still makes cargo build the desktop-only crate on
+# Android targets, where its `run` module is cfg'd out.
+mxc-sdk = { workspace = true }

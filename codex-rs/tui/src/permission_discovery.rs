@@ -1,10 +1,11 @@
-//! Bounded discovery for permission pickers; fixed request IDs bound abandoned RPCs.
+//! Bounded permission catalog discovery with distinct IDs for concurrent requests.
 //! Discovery and availability come from the connected server; selection uses its settings API.
 
 use crate::app_event::AppEvent;
 use crate::app_event_sender::AppEventSender;
 use crate::app_server_session::AppServerSession;
 use crate::app_server_session::ThreadParamsMode;
+use crate::app_server_session::ThreadSettingsOwner;
 use crate::legacy_core::config::Config;
 use codex_app_server_client::TypedRequestError;
 use codex_app_server_protocol::ApprovalsReviewer;
@@ -22,7 +23,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct PermissionDiscovery {
     pub(crate) profiles: Vec<PermissionProfileSummary>,
     pub(crate) requirements: Option<ConfigRequirements>,
@@ -88,17 +89,26 @@ pub(crate) fn fetch(
 ) {
     let handle = app_server.request_handle();
     let mode = app_server.thread_params_mode();
+    if mode.settings_owner() == ThreadSettingsOwner::Server {
+        tx.send(AppEvent::PermissionProfilesLoaded {
+            request_id,
+            result: Err("Cloud conversations use server-selected permissions.".to_string()),
+        });
+        return;
+    }
     let cwd = thread_cwd
         .or_else(|| match mode {
             ThreadParamsMode::Embedded => Some(config.cwd.as_path()),
-            ThreadParamsMode::Remote => app_server.remote_cwd_override(),
+            ThreadParamsMode::Remote | ThreadParamsMode::Cloud => app_server.remote_cwd_override(),
         })
         .map(|cwd| cwd.to_string_lossy().into_owned());
     tokio::spawn(async move {
         let request = async {
             let requirements: ConfigRequirementsReadResponse = handle
                 .request_typed(ClientRequest::ConfigRequirementsRead {
-                    request_id: RequestId::String("tui-permission-requirements".to_string()),
+                    request_id: RequestId::String(format!(
+                        "tui-permission-requirements-{request_id}"
+                    )),
                     params: None,
                 })
                 .await
@@ -106,10 +116,12 @@ pub(crate) fn fetch(
             let mut profiles = Vec::new();
             let mut cursor = None;
             let mut cursors = HashSet::new();
-            for _ in 0..10 {
+            for page in 0..10 {
                 let response: PermissionProfileListResponse = handle
                     .request_typed(ClientRequest::PermissionProfileList {
-                        request_id: RequestId::String("tui-permission-profiles".to_string()),
+                        request_id: RequestId::String(format!(
+                            "tui-permission-profiles-{request_id}-{page}"
+                        )),
                         params: PermissionProfileListParams {
                             cursor,
                             limit: Some(100),

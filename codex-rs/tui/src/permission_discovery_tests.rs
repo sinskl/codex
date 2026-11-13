@@ -77,7 +77,7 @@ async fn discovery_preserves_config_scope_and_bounds_server_requests() {
             ],
         });
         if case == "timeout" {
-            replies = vec![Value::Null];
+            replies = vec![Value::Null; 4];
         }
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let websocket_url = format!("ws://{}", listener.local_addr().unwrap());
@@ -114,13 +114,13 @@ async fn discovery_preserves_config_scope_and_bounds_server_requests() {
         })
         .await
         .unwrap();
-        let session = AppServerSession::new(client, mode)
+        let session = AppServerSession::new(crate::backend_id::BackendId::new(), client, mode)
             .with_remote_cwd_override(remote_cwd.map(std::path::PathBuf::from));
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         if case == "timeout" {
             tokio::time::pause();
         } // Keep real time for the socket handshake.
-        for attempt in 0..if case == "timeout" { 4 } else { 1 } {
+        for _ in 0..if case == "timeout" { 4 } else { 1 } {
             fetch(
                 &session,
                 Uuid::new_v4(),
@@ -135,8 +135,7 @@ async fn discovery_preserves_config_scope_and_bounds_server_requests() {
                 "unsupported" => Some("Upgrade"),
                 "config-error" => Some("Invalid project config"),
                 "cycle" | "limit" => Some("pagination limit"),
-                "timeout" if attempt == 0 => Some("timed out"),
-                "timeout" => Some("duplicate"),
+                "timeout" => Some("timed out"),
                 _ => None,
             };
             if let Some(error) = error {
@@ -157,7 +156,11 @@ async fn discovery_preserves_config_scope_and_bounds_server_requests() {
         session.shutdown().await.unwrap();
         let requests = server.await.unwrap();
         match case {
-            "timeout" => assert_eq!(requests.len(), 1),
+            "timeout" => {
+                assert_eq!(requests.len(), 4);
+                let ids: HashSet<_> = requests.iter().map(|request| &request["id"]).collect();
+                assert_eq!(ids.len(), requests.len());
+            }
             "local" | "session-only" | "remote" | "remote-default" | "thread" | "legacy" => {
                 let pages: Vec<_> = requests
                     .iter()
@@ -178,4 +181,36 @@ async fn discovery_preserves_config_scope_and_bounds_server_requests() {
             tokio::time::resume();
         }
     }
+}
+
+#[tokio::test]
+async fn cloud_discovery_reports_server_selected_permissions_without_sending_requests() {
+    let home = tempfile::tempdir().unwrap();
+    let config = ConfigBuilder::default()
+        .codex_home(home.path().to_path_buf())
+        .build()
+        .await
+        .unwrap();
+    let (client, mut commands, _events) =
+        codex_app_server_client::CloudClient::channel(/*capacity*/ 1);
+    let session = AppServerSession::new(
+        crate::backend_id::BackendId::new(),
+        codex_app_server_client::AppServerClient::Cloud(client),
+        ThreadParamsMode::Cloud,
+    );
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+
+    fetch(
+        &session,
+        Uuid::new_v4(),
+        &config,
+        /*thread_cwd*/ None,
+        AppEventSender::new(tx),
+    );
+
+    let AppEvent::PermissionProfilesLoaded { result, .. } = rx.recv().await.unwrap() else {
+        panic!("expected discovery result")
+    };
+    insta::assert_snapshot!(result.unwrap_err(), @"Cloud conversations use server-selected permissions.");
+    assert!(commands.try_recv().is_err());
 }
