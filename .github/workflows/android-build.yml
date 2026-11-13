@@ -1,9 +1,9 @@
 name: Android build
 
 on:
+  # 只保留手动触发：这个构建要编译 V8，每次约 50 分钟；
+  # fork 上高频 push 触发会被 GitHub 按 Actions 用量节流。
   workflow_dispatch:
-  push:
-    branches: [main]
 
 jobs:
   build-android:
