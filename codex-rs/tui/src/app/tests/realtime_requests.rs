@@ -12,6 +12,7 @@ use codex_app_server_protocol::ItemCompletedNotification;
 use codex_app_server_protocol::ItemStartedNotification;
 use codex_app_server_protocol::ServerNotification;
 use codex_app_server_protocol::ThreadItem;
+use codex_app_server_protocol::ThreadItemPayload;
 use codex_app_server_protocol::Turn;
 use codex_app_server_protocol::TurnCompletedNotification;
 use codex_app_server_protocol::TurnItemsView;
@@ -45,8 +46,9 @@ fn voice_snapshot_directory_keeps_header_width_for_windows_paths() {
     );
 }
 
-fn test_agent_message(id: &str, text: &str) -> ThreadItem {
-    ThreadItem::AgentMessage {
+fn test_agent_message(id: &str, text: &str) -> ThreadItemPayload {
+    ThreadItemPayload::AgentMessage {
+        moderation: None,
         id: id.into(),
         text: text.into(),
         phase: Some(MessagePhase::FinalAnswer),
@@ -56,8 +58,8 @@ fn test_agent_message(id: &str, text: &str) -> ThreadItem {
     }
 }
 
-fn test_user_message(id: &str, text: &str) -> ThreadItem {
-    ThreadItem::UserMessage {
+fn test_user_message(id: &str, text: &str) -> ThreadItemPayload {
+    ThreadItemPayload::UserMessage {
         id: id.into(),
         client_id: None,
         content: vec![UserInput::Text {
@@ -299,7 +301,8 @@ async fn switching_agent_threads_preserves_backend_voice_and_routes_pending_spee
             thread_id: source.to_string(),
             turn: Turn {
                 id: turn_id.into(),
-                items: vec![answer.clone()],
+                root_turn_id: None,
+                items: vec![ThreadItem::untimed(answer.clone())],
                 items_view: TurnItemsView::Summary,
                 status: TurnStatus::Completed,
                 error: None,
@@ -665,12 +668,13 @@ async fn replay_reconciles_only_matching_voice_captions_one_for_one() {
         .insert(source, records);
     let voice = Turn {
         id: "voice-turn".into(),
+        root_turn_id: None,
         items: vec![
-            test_user_message(
+            ThreadItem::untimed(test_user_message(
                 "voice-user",
                 "<realtime_delegation><input>show &lt;code&gt; &amp; tests</input></realtime_delegation>",
-            ),
-            test_agent_message("voice-answer", "spoken answer"),
+            )),
+            ThreadItem::untimed(test_agent_message("voice-answer", "spoken answer")),
         ],
         items_view: TurnItemsView::Summary,
         status: TurnStatus::Completed,
@@ -681,7 +685,10 @@ async fn replay_reconciles_only_matching_voice_captions_one_for_one() {
     };
     let typed = Turn {
         id: "typed-turn".into(),
-        items: vec![test_user_message("typed-user", "typed words")],
+        items: vec![ThreadItem::untimed(test_user_message(
+            "typed-user",
+            "typed words",
+        ))],
         ..voice.clone()
     };
     app.replay_thread_snapshot(
@@ -701,12 +708,11 @@ async fn replay_reconciles_only_matching_voice_captions_one_for_one() {
             AppEvent::InsertHistoryCell(cell) => Some(
                 cell.transcript_lines(/*width*/ 80)
                     .into_iter()
-                    .map(|line| line.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
+                    .map(|line| line.to_string()),
             ),
             _ => None,
         })
+        .flatten()
         .collect::<Vec<_>>()
         .join("\n");
     assert_eq!(rendered.matches("show <code> & tests").count(), 2);
@@ -736,7 +742,8 @@ async fn retained_caption_consumes_only_one_matching_answer_fallback_on_reattach
         }]
         .into(),
     );
-    let answer = |id: &str, text: &str| ThreadItem::AgentMessage {
+    let answer = |id: &str, text: &str| ThreadItemPayload::AgentMessage {
+        moderation: None,
         id: id.into(),
         text: text.into(),
         phase: Some(MessagePhase::FinalAnswer),
@@ -836,7 +843,7 @@ async fn buffered_voice_items_reconcile_captions_after_thread_switch() {
         .collect(),
     );
     let items = [
-        ThreadItem::UserMessage {
+        ThreadItemPayload::UserMessage {
             id: "user-item".into(),
             client_id: None,
             content: vec![UserInput::Text {
@@ -851,12 +858,13 @@ async fn buffered_voice_items_reconcile_captions_after_thread_switch() {
         .into_iter()
         .map(|item| {
             ThreadBufferedEvent::Notification(Box::new(ServerNotification::ItemCompleted(
-                ItemCompletedNotification {
+                ItemCompletedNotification::new(
+                    source.to_string(),
+                    "buffered-turn".into(),
                     item,
-                    thread_id: source.to_string(),
-                    turn_id: "buffered-turn".into(),
-                    completed_at_ms: 0,
-                },
+                    /*started_at_ms*/ None,
+                    /*completed_at_ms*/ 0,
+                ),
             )))
         })
         .collect();
@@ -915,7 +923,7 @@ async fn unrendered_buffered_items_do_not_consume_retained_captions() {
         })
         .collect(),
     );
-    let user_item = |id: &str, text: &str| ThreadItem::UserMessage {
+    let user_item = |id: &str, text: &str| ThreadItemPayload::UserMessage {
         id: id.into(),
         client_id: None,
         content: vec![UserInput::Text {
@@ -923,13 +931,14 @@ async fn unrendered_buffered_items_do_not_consume_retained_captions() {
             text_elements: Vec::new(),
         }],
     };
-    let completion = |turn_id: &str, status: TurnStatus, items: Vec<ThreadItem>| {
+    let completion = |turn_id: &str, status: TurnStatus, items: Vec<ThreadItemPayload>| {
         ThreadBufferedEvent::Notification(Box::new(ServerNotification::TurnCompleted(
             TurnCompletedNotification {
                 thread_id: source.to_string(),
                 turn: Turn {
                     id: turn_id.into(),
-                    items,
+                    root_turn_id: None,
+                    items: items.into_iter().map(ThreadItem::untimed).collect(),
                     items_view: TurnItemsView::Summary,
                     status,
                     error: None,
@@ -947,12 +956,12 @@ async fn unrendered_buffered_items_do_not_consume_retained_captions() {
             turns: Vec::new(),
             events: vec![
                 ThreadBufferedEvent::Notification(Box::new(ServerNotification::ItemStarted(
-                    ItemStartedNotification {
-                        item: user_item("started-user", "started only"),
-                        thread_id: source.to_string(),
-                        turn_id: "started".into(),
-                        started_at_ms: 0,
-                    },
+                    ItemStartedNotification::new(
+                        source.to_string(),
+                        "started".into(),
+                        user_item("started-user", "started only"),
+                        /*started_at_ms*/ 0,
+                    ),
                 ))),
                 completion(
                     "evicted",
@@ -1061,7 +1070,10 @@ async fn completed_voice_caption_survives_repeated_thread_replacement() {
         let mut snapshot = empty_thread_snapshot(&app, source);
         snapshot.turns.push(Turn {
             id: "earlier-typed-turn".into(),
-            items: vec![test_agent_message("earlier-answer", "Earlier answer")],
+            items: vec![ThreadItem::untimed(test_agent_message(
+                "earlier-answer",
+                "Earlier answer",
+            ))],
             ..typed.clone()
         });
         snapshot.turns.push(typed.clone());
@@ -1073,12 +1085,11 @@ async fn completed_voice_caption_survives_repeated_thread_replacement() {
                 AppEvent::InsertHistoryCell(cell) => Some(
                     cell.transcript_lines(/*width*/ 80)
                         .into_iter()
-                        .map(|line| line.to_string())
-                        .collect::<Vec<_>>()
-                        .join("\n"),
+                        .map(|line| line.to_string()),
                 ),
                 _ => None,
             })
+            .flatten()
             .collect::<Vec<_>>()
             .join("\n");
         assert_eq!(rendered.matches("spoken complete").count(), 1);
@@ -1212,7 +1223,8 @@ async fn rejected_realtime_speech_restores_the_delegated_final_answer() -> Resul
             thread_id: thread_id.to_string(),
             turn: Turn {
                 id: "rejected-turn".to_string(),
-                items: vec![answer],
+                root_turn_id: None,
+                items: vec![ThreadItem::untimed(answer)],
                 items_view: TurnItemsView::Summary,
                 status: TurnStatus::Completed,
                 error: None,
@@ -1311,7 +1323,8 @@ async fn switching_threads_retains_undelivered_voice_answer_after_replay_evictio
             thread_id: original.to_string(),
             turn: Turn {
                 id: "switched-turn".to_string(),
-                items: vec![answer],
+                root_turn_id: None,
+                items: vec![ThreadItem::untimed(answer)],
                 items_view: TurnItemsView::Summary,
                 status: TurnStatus::Completed,
                 error: None,
@@ -1380,7 +1393,7 @@ async fn switching_threads_retains_undelivered_voice_answer_after_replay_evictio
     assert_eq!(restored, 1);
     let replayed_item = test_agent_message("replayed-final", "Already in the thread snapshot.");
     let mut older_item = replayed_item.clone();
-    if let ThreadItem::AgentMessage { text, .. } = &mut older_item {
+    if let ThreadItemPayload::AgentMessage { text, .. } = &mut older_item {
         *text = "Older pending text.".to_string();
     }
     app.pending_realtime_speech_replay
@@ -1391,7 +1404,8 @@ async fn switching_threads_retains_undelivered_voice_answer_after_replay_evictio
             session: Some(test_thread_session(original, app.config.cwd.to_path_buf())),
             turns: vec![Turn {
                 id: "replayed-turn".to_string(),
-                items: vec![replayed_item],
+                root_turn_id: None,
+                items: vec![ThreadItem::untimed(replayed_item)],
                 items_view: TurnItemsView::Summary,
                 status: TurnStatus::Completed,
                 error: None,
@@ -1512,22 +1526,25 @@ fn send_item(
     app: &mut App,
     thread_id: ThreadId,
     turn_id: &str,
-    item: ThreadItem,
+    item: ThreadItemPayload,
     kind: ItemEventKind,
 ) {
     let notification = match kind {
-        ItemEventKind::Started => ServerNotification::ItemStarted(ItemStartedNotification {
-            thread_id: thread_id.to_string(),
-            turn_id: turn_id.to_string(),
+        ItemEventKind::Started => ServerNotification::ItemStarted(ItemStartedNotification::new(
+            thread_id.to_string(),
+            turn_id.to_string(),
             item,
-            started_at_ms: 0,
-        }),
-        ItemEventKind::Completed => ServerNotification::ItemCompleted(ItemCompletedNotification {
-            thread_id: thread_id.to_string(),
-            turn_id: turn_id.to_string(),
-            item,
-            completed_at_ms: 0,
-        }),
+            /*started_at_ms*/ 0,
+        )),
+        ItemEventKind::Completed => {
+            ServerNotification::ItemCompleted(ItemCompletedNotification::new(
+                thread_id.to_string(),
+                turn_id.to_string(),
+                item,
+                /*started_at_ms*/ None,
+                /*completed_at_ms*/ 0,
+            ))
+        }
     };
     app.handle_thread_event_now(ThreadBufferedEvent::Notification(Box::new(notification)));
 }
@@ -1593,7 +1610,8 @@ async fn delegated_final_speech_reaches_app_server_once_and_stale_speech_is_reje
             thread_id: thread_id.to_string(),
             turn: Turn {
                 id: turn_id.to_string(),
-                items: vec![answer],
+                root_turn_id: None,
+                items: vec![ThreadItem::untimed(answer)],
                 items_view: TurnItemsView::Summary,
                 status: TurnStatus::Completed,
                 error: None,
@@ -1670,7 +1688,8 @@ async fn delegated_final_speech_reaches_app_server_once_and_stale_speech_is_reje
             thread_id: thread_id.to_string(),
             turn: Turn {
                 id: second_turn.to_string(),
-                items: vec![second_answer],
+                root_turn_id: None,
+                items: vec![ThreadItem::untimed(second_answer)],
                 items_view: TurnItemsView::Summary,
                 status: TurnStatus::Completed,
                 error: None,
@@ -2042,6 +2061,7 @@ async fn overridden_voice_save_keeps_effective_voice() -> Result<()> {
         )
         .await?;
         let server = AppServerSession::new(
+            crate::backend_id::BackendId::new(),
             codex_app_server_client::AppServerClient::InProcess(client),
             crate::app_server_session::ThreadParamsMode::Embedded,
         );
@@ -2081,9 +2101,74 @@ async fn overridden_voice_save_keeps_effective_voice() -> Result<()> {
 }
 
 #[tokio::test]
-async fn audio_devices_are_persisted() -> Result<()> {
-    use codex_realtime_webrtc::AudioDeviceKind;
+async fn microphone_channel_is_persisted_locally_and_reloaded() -> Result<()> {
     let mut app = make_test_app().await;
+    use codex_config::config_toml::MicrophoneChannels;
+    for (saved, overridden, expected) in [
+        (Some("1"), None, Some("1")),
+        (Some("[1, 2]"), None, Some("[1, 2]")),
+        (Some("[1, 2]"), Some("3"), Some("3")),
+        (Some("1"), Some("[2, 3]"), Some("[2, 3]")),
+        (None, None, None),
+    ] {
+        let parse = |value: &str| -> MicrophoneChannels {
+            toml::from_str::<codex_config::config_toml::RealtimeAudioToml>(&format!(
+                "microphone_channel = {value}"
+            ))
+            .unwrap()
+            .microphone_channel
+            .unwrap()
+        };
+        app.cli_kv_overrides = overridden
+            .into_iter()
+            .map(|value| {
+                (
+                    "audio.microphone_channel".to_string(),
+                    toml::Value::try_from(parse(value)).unwrap(),
+                )
+            })
+            .collect();
+        let mut expected_settings = app.local_settings.clone();
+        app.persist_realtime_input_channel(saved.map(parse)).await;
+        expected_settings.audio = app.local_settings.audio.clone();
+        assert_eq!(app.local_settings, expected_settings);
+        let actual = [&app.local_settings, &app.chat_widget.local_settings]
+            .map(|settings| settings.audio.as_ref().unwrap().microphone_channel.clone());
+        assert_eq!(
+            actual,
+            std::array::from_fn::<_, 2, _>(|_| expected.map(parse))
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn audio_devices_are_persisted_and_input_changes_clear_channels() -> Result<()> {
+    use codex_realtime_webrtc::AudioDeviceKind;
+    let (mut app, mut events, _ops) = make_test_app_with_channels().await;
+    app.cli_kv_overrides = vec![("audio.microphone_channel".into(), 3.into())];
+    app.persist_realtime_device(AudioDeviceKind::Input, Some("Mono mic".into()))
+        .await;
+    let messages = std::iter::from_fn(|| events.try_recv().ok())
+        .filter_map(|event| match event {
+            AppEvent::InsertHistoryCell(cell) => Some(
+                cell.display_lines(/*width*/ 120)
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<String>(),
+            ),
+            _ => None,
+        })
+        .collect::<String>();
+    assert!(messages.contains("input channel is overridden"));
+    app.cli_kv_overrides.clear();
+    app.persist_realtime_input_channel(Some(
+        codex_config::config_toml::MicrophoneChannels::Multiple(vec![
+            std::num::NonZeroU16::new(/*n*/ 1).unwrap(),
+            std::num::NonZeroU16::new(/*n*/ 3).unwrap(),
+        ]),
+    ))
+    .await;
     app.persist_realtime_device(AudioDeviceKind::Output, Some("Headphones".into()))
         .await;
     app.persist_realtime_device(AudioDeviceKind::Input, Some("Interface".into()))
@@ -2091,11 +2176,29 @@ async fn audio_devices_are_persisted() -> Result<()> {
     let expected = codex_config::config_toml::RealtimeAudioToml {
         microphone: Some("Interface".into()),
         speaker: Some("Headphones".into()),
+        microphone_channel: None,
     };
     assert_eq!(app.local_settings.audio.as_ref().unwrap(), &expected);
     assert_eq!(LocalSettings::from(&app.config).audio, Ok(expected));
     app.persist_realtime_device(AudioDeviceKind::Input, /*name*/ None)
         .await;
+    app.persist_realtime_input_channel(Some(
+        codex_config::config_toml::MicrophoneChannels::Multiple(vec![
+            std::num::NonZeroU16::new(/*n*/ 1).unwrap(),
+            std::num::NonZeroU16::new(/*n*/ 3).unwrap(),
+        ]),
+    ))
+    .await;
+    app.persist_realtime_device(AudioDeviceKind::Input, /*name*/ None)
+        .await;
+    assert_eq!(
+        app.local_settings
+            .audio
+            .as_ref()
+            .unwrap()
+            .microphone_channel,
+        None
+    );
     app.persist_realtime_device(AudioDeviceKind::Output, /*name*/ None)
         .await;
     assert_eq!(app.local_settings.audio, Ok(Default::default()));
@@ -2107,14 +2210,14 @@ async fn audio_devices_are_persisted() -> Result<()> {
 }
 
 #[tokio::test]
-async fn audio_device_is_machine_local_across_project_and_remote_transitions() -> Result<()> {
+async fn microphone_channel_is_machine_local_across_project_and_remote_transitions() -> Result<()> {
     let mut app = make_test_app().await;
     let project = tempfile::tempdir()?;
     let remote = tempfile::tempdir()?;
     std::fs::create_dir_all(project.path().join(".codex"))?;
     std::fs::write(
         project.path().join(".codex/config.toml"),
-        "default_permissions = \"work\"\n[audio]\nmicrophone = \"Project mic\"\n[permissions.work]\nextends = \":workspace\"\n",
+        "default_permissions = \"work\"\n[audio]\nmicrophone_channel = 2\n[permissions.work]\nextends = \":workspace\"\n",
     )?;
     crate::legacy_core::config::set_project_trust_level(
         &app.config.codex_home,
@@ -2132,9 +2235,9 @@ async fn audio_device_is_machine_local_across_project_and_remote_transitions() -
             ThreadId::new(),
             remote.path().to_path_buf(),
         ));
-    app.persist_realtime_device(
-        codex_realtime_webrtc::AudioDeviceKind::Input,
-        Some("Machine mic".into()),
+    app.persist_realtime_input_channel(
+        std::num::NonZeroU16::new(/*n*/ 1)
+            .map(codex_config::config_toml::MicrophoneChannels::Single),
     )
     .await;
     app.cli_kv_overrides.clear();
@@ -2147,15 +2250,16 @@ async fn audio_device_is_machine_local_across_project_and_remote_transitions() -
         let reloaded = app.local_settings.reloaded(&config);
         assert_eq!(reloaded.audio, app.chat_widget.local_settings.audio);
         assert_eq!(
-            reloaded.audio.as_ref().unwrap().microphone.as_deref(),
-            Some("Machine mic")
+            reloaded.audio.as_ref().unwrap().microphone_channel,
+            std::num::NonZeroU16::new(/*n*/ 1)
+                .map(codex_config::config_toml::MicrophoneChannels::Single)
         );
     }
-    // A project value must not hide invalid machine audio.
+    // A project value must not hide invalid machine audio and silently enable mixed capture.
     std::fs::write(
         app.local_settings.user_config_path.as_path(),
         std::fs::read_to_string(app.local_settings.user_config_path.as_path())?
-            .replace("microphone = \"Machine mic\"", "microphone = 0"),
+            .replace("microphone_channel = 1", "microphone_channel = 0"),
     )?;
     let config = app
         .rebuild_config_for_cwd(project.path().to_path_buf())

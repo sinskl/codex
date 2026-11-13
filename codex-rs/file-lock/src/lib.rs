@@ -74,6 +74,18 @@ pub fn try_lock_shared(file: &File) -> io::Result<()> {
     }
 }
 
+/// Releases a lock previously acquired on `file` (Android fallback: `flock(LOCK_UN)`).
+pub fn unlock(file: &File) -> io::Result<()> {
+    #[cfg(not(target_os = "android"))]
+    {
+        file.unlock()
+    }
+    #[cfg(target_os = "android")]
+    {
+        flock(file, libc::LOCK_UN)
+    }
+}
+
 #[cfg(not(target_os = "android"))]
 fn try_lock_error_into_io(err: std::fs::TryLockError) -> io::Error {
     match err {

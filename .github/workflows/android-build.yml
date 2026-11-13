@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     env:
-      CODEX_PACKAGE_VERSION: "0.161.0-alpha.3"
+      CODEX_PACKAGE_VERSION: "0.170.0-alpha.4"
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +77,7 @@ jobs:
             codex-rs/target/aarch64-linux-android/release/build
             codex-rs/target/aarch64-linux-android/release/clang
             ~/.cargo/registry/src
+            ~/.cargo/git/checkouts
           key: v8-android-build-v1-${{ github.run_id }}
           restore-keys: v8-android-build-v1-
 
@@ -85,7 +86,27 @@ jobs:
           # Let cargo fetch/unpack the v8 crate first, then patch it.
           cd codex-rs
           cargo fetch
-          V8_DIR=$(ls -d ~/.cargo/registry/src/*/v8-150.4.0)
+          # v8 is a git dependency (openai-oss-forks/rusty_v8) since 2026-11. Find the
+          # checkout, and materialize its chromium submodules (build/, buildtools/,
+          # v8/, third_party/...) which the from-source build needs.
+          V8_DIR=$(find "$HOME/.cargo/git/checkouts" -maxdepth 3 -type f -name build.rs -path '*rusty_v8*' 2>/dev/null | head -1 | xargs -r dirname)
+          if [ -z "$V8_DIR" ]; then
+            V8_DIR=$(find "$HOME/.cargo/git/checkouts" -maxdepth 3 -type f -name Cargo.toml -path '*rusty_v8*' 2>/dev/null | head -1 | xargs -r dirname)
+          fi
+          if [ -z "$V8_DIR" ]; then
+            V8_DIR=$(ls -d ~/.cargo/registry/src/*/v8-* 2>/dev/null | head -1)
+          fi
+          echo "V8_DIR=$V8_DIR"
+          test -n "$V8_DIR"
+          ls "$V8_DIR" | head
+          if [ -e "$V8_DIR/.git" ]; then
+            # Submodule pins point at specific commits; a shallow init still gets them
+            # when the server allows fetching by commit, otherwise fall back.
+            git -C "$V8_DIR" submodule update --init --recursive --depth 1 --jobs 4 \
+              || git -C "$V8_DIR" submodule update --init --recursive --jobs 4
+          fi
+          test -d "$V8_DIR/build"
+          test -d "$V8_DIR/v8"
           cd "$V8_DIR"
           # Download the NDK the build.rs expects at third_party/android_ndk.
           # Clean any partial state first (cargo fetch may have re-unpacked the
@@ -149,7 +170,7 @@ jobs:
           # GN needs third_party/icu/android/icudtl.dat (normally produced by a
           # gclient hook). Reuse the generic ICU data file vendored in the
           # deno_core_icudata crate.
-          ICU_SRC=$(ls -d ~/.cargo/registry/src/*/deno_core_icudata-0.77.0/src/icudtl.dat)
+          ICU_SRC=$(ls -d ~/.cargo/registry/src/*/deno_core_icudata-*/src/icudtl.dat | tail -1)
           mkdir -p third_party/icu/android third_party/icu/common
           cp "$ICU_SRC" third_party/icu/android/icudtl.dat
           cp "$ICU_SRC" third_party/icu/common/icudtl.dat
@@ -278,6 +299,7 @@ jobs:
             codex-rs/target/aarch64-linux-android/release/build
             codex-rs/target/aarch64-linux-android/release/clang
             ~/.cargo/registry/src
+            ~/.cargo/git/checkouts
           key: v8-android-build-v1-${{ github.run_id }}
 
       - name: Package binary
